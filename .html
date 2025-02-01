@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR code generator</title>
+
+    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #4203a9, #90bafc);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: #fff;
+            padding: 30px;
+            width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .container p {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        #qrText {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        #qrText:focus {
+            outline: none;
+            border-color: #4203a9;
+        }
+
+        #imgbox {
+            width: 200px;
+            height: 200px;
+            border-radius: 5px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            margin: 0 auto;
+        }
+
+        #imgbox.show-img {
+            max-height: 300px;
+            margin: 20px auto;
+            border: 1px solid #d1d1d1;
+            padding: 10px;
+        }
+
+        #imgbox img {
+            width: 100%;
+            padding: 10px;
+        }
+
+        button {
+            background: #111924;
+            color: #fff;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 0;
+            width: 100%;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #000000;
+            transform: translateY(-2px);
+        }
+
+        #downloadBtn, #paymentBtn {
+            background: #1c2480;
+        }
+
+        #downloadBtn:hover, #paymentBtn:hover {
+            background: #1c2480;
+        }
+
+        .error {
+            animation: shake 0.1s linear 10;
+            border-color: #e74c3c !important;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            50% { transform: translateX(0); }
+            75% { transform: translateX(2px); }
+            100% { transform: translateX(0); }
+        }
+
+        #paymentForm {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        #paymentForm h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        #paymentForm input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        #paymentForm input:focus {
+            outline: none;
+            border-color: #4203a9;
+        }
+
+        #paymentForm button {
+            background: #4203a9;
+            margin-top: 15px;
+        }
+
+        /* Responsive Design */
+        @media screen and (max-width: 480px) {
+            .container {
+                width: 90%;
+                padding: 20px;
+                margin: 0 15px;
+            }
+
+            button {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+
+            .container p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+
+    <!-- Add Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+     <p>Enter Your Text Or URL</p>  
+     <input type="text" placeholder="Text Or URL" id="qrText" onkeypress="return validateInput(event)">
+
+     <div id="imgbox">
+        <img src="" id="qrImage">
+     </div>
+
+     <button onclick="generateQR()">Generate QR Code</button>
+     <button onclick="downloadQR()" id="downloadBtn" style="display: none;">Download QR Code</button>
+     <button onclick="showPaymentForm()" id="paymentBtn" style="display: none;">Set Up Payment</button>
+
+     <div id="paymentForm" style="display: none;">
+        <h3>Bank Account Details</h3>
+        <form onsubmit="processPayment(event)">
+            <input type="text" id="accountName" placeholder="Account Holder Name" required>
+            <input type="text" id="accountNumber" placeholder="Account Number" required>
+            <input type="text" id="bankName" placeholder="Bank Name" required>
+            <input type="text" id="ifscCode" placeholder="IFSC/SWIFT Code" required>
+            <input type="number" id="amount" placeholder="Amount to Receive" required>
+            <button type="submit">Link Bank Account</button>
+        </form>
+     </div>
+
+    </div> 
+
+    <script>
+        let imgbox = document.getElementById("imgbox");
+        let qrImage = document.getElementById("qrImage");
+        let qrText = document.getElementById("qrText");
+        let downloadBtn = document.getElementById("downloadBtn");
+        let paymentBtn = document.getElementById("paymentBtn");
+        let paymentForm = document.getElementById("paymentForm");
+
+        function validateInput(event) {
+            // Allow letters, common URL characters, and spaces
+            const pattern = /^[a-zA-Z\s/:._-]$/;
+            
+            // Get the pressed key
+            const char = String.fromCharCode(event.charCode);
+            
+            // Test if the key matches our pattern
+            if (!pattern.test(char)) {
+                event.preventDefault();
+                qrText.classList.add("error");
+                setTimeout(() => {
+                    qrText.classList.remove("error");
+                }, 500);
+                return false;
+            }
+            return true;
+        }
+
+        function generateQR() {
+            if(qrText.value.length > 0) {
+                // Additional validation for URLs
+                if (qrText.value.includes('http') && !isValidUrl(qrText.value)) {
+                    alert('Please enter a valid URL');
+                    return;
+                }
+                qrImage.src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(qrText.value);
+                imgbox.classList.add("show-img");
+                downloadBtn.style.display = "block";
+                paymentBtn.style.display = "block";
+            } else {
+                qrText.classList.add("error");
+                setTimeout(() => {
+                    qrText.classList.remove("error");
+                }, 1000);
+            }
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function downloadQR() {
+            let link = document.createElement('a');
+            link.download = 'qrcode.png';
+            link.href = qrImage.src;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function showPaymentForm() {
+            paymentForm.style.display = "block";
+        }
+
+        function processPayment(event) {
+            event.preventDefault();
+            
+            const paymentDetails = {
+                accountName: document.getElementById('accountName').value,
+                accountNumber: document.getElementById('accountNumber').value,
+                bankName: document.getElementById('bankName').value,
+                ifscCode: document.getElementById('ifscCode').value,
+                amount: document.getElementById('amount').value
+            };
+
+            if (!validateBankDetails(paymentDetails)) {
+                alert('Please enter valid bank details');
+                return;
+            }
+
+            alert('Bank account linked successfully! Payment processing will be implemented by your payment provider.');
+            
+            event.target.reset();
+            paymentForm.style.display = "none";
+        }
+
+        function validateBankDetails(details) {
+            return details.accountNumber.length >= 8 && 
+                   details.ifscCode.length >= 8 && 
+                   details.amount > 0 && 
+                   details.accountName.length > 0 && 
+                   details.bankName.length > 0;
+        }
+    </script>
+
+    
+    </body>
+    
+    </html>
